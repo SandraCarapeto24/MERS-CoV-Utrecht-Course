@@ -1,4 +1,22 @@
 #MERS-CoV2 Model 
+#-------------
+#Vaccination Combinations
+vaccination_rates <- seq(0, 100, by = 20)
+
+#Proportions of Vaccination possible combinations
+combination_matrix <- outer(
+  vaccination_rates,
+  vaccination_rates,
+  FUN = function(h, c) paste0(h, "%-", c, "%")
+)
+
+# Add row and column names for clarity
+rownames(combination_matrix) <- paste0("Human_", vaccination_rates, "%")
+colnames(combination_matrix) <- paste0("Camel_", vaccination_rates, "%")
+
+# Print matrix
+print(combination_matrix)
+#------------------------
 
 library(deSolve)
 ########################################################################
