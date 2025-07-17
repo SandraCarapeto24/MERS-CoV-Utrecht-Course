@@ -1,22 +1,3 @@
-#MERS-CoV2 Model 
-#-------------
-#Vaccination Combinations
-vaccination_rates <- seq(0, 100, by = 20)
-
-#Proportions of Vaccination possible combinations
-combination_matrix <- outer(
-  vaccination_rates,
-  vaccination_rates,
-  FUN = function(h, c) paste0(h, "%-", c, "%")
-)
-
-# Add row and column names for clarity
-rownames(combination_matrix) <- paste0("Human_", vaccination_rates, "%")
-colnames(combination_matrix) <- paste0("Camel_", vaccination_rates, "%")
-
-# Print matrix
-print(combination_matrix)
-#------------------------
 
 library(deSolve)
 ########################################################################
@@ -40,45 +21,67 @@ sveir <- function(Time, State, pars){
   })
 }
 
-#Parameters 
-pars <- c(betacc = 0.2, #beta = transmission rate
-                 omegac = 0,
-                 sigmac = 0.1429, # Latent period for camels 7 days
-                 gammac = 0.0047, #gamma = recovery rate
-          betahh = 0.2, #beta = transmission rate
-          betahc = 0.2226,
-          omegah = 0,
-          sigmah = 0.1429, # Latent period for humans 7 days
-          gammah = 0.0759, #gamma = recovery rate
-          muh = 0.0019 # case fatality rate for humans 
+param_table <- read.csv("Data.csv", sep = ";", stringsAsFactors = FALSE)
+
+run_index <- 1
+
+if (run_index < 1 || run_index > nrow(param_table)) {
+  stop("Invalid run index. Please choose a number between 1 and ", nrow(param_table))
+}
+
+row <- param_table[run_index, ]
+
+cat("\n--- Running scenario", run_index, "---\n")
+
+# Extract and construct parameter vector for the model
+pars <- c(
+  betacc = row$betacc,
+  omegac = row$omegac,
+  sigmac = row$sigmac,
+  gammac = row$gammac,
+  betahh = row$betahh,
+  betahc = row$betahc,
+  omegah = row$omegah,
+  sigmah = row$sigmah,
+  gammah = row$gammah,
+  muh = row$muh
 )
 
-#initial values for camels
-N0c = 1800000 #population size for camels
-pc <- 0
-V0c = pc * N0c #initial fraction vaccinated for camels
-Y0c = 0 #initial fraction infected for camels
-Z0c = 0 #initial fraction recovered for camels
-W0c = 0 #initial fraction latent for camels
-X0c = (1-pc) * N0c - Y0c - W0c - Z0c
+# Initial values from selected row
+N0c <- row$N0c
+pc  <- row$pc
+Y0c <- row$Y0c
+Z0c <- row$Z0c
+W0c <- row$W0c
+V0c <- pc * N0c
+X0c <- (1 - pc) * N0c - Y0c - Z0c - W0c
 
-#initial values for humans
-N0h = 34566328 #population size for humans
-ph <- 0
-V0h = ph * N0h #initial fraction vaccinated for humans
-Y0h = 1 #initial fraction infected for humans
-Z0h = 0 #initial fraction recovered for humans
-W0h = 0 #initial fraction latent for humans
-X0h = (1-ph) * N0h - Y0h - W0h - Z0h
-init <- c(Xc = X0c,Vc = V0c,Wc = W0c, Yc = Y0c, Zc = Z0c, Xh = X0h,Vh = V0h,Wh = W0h, Yh = Y0h, Zh = Z0h)
+N0h <- row$N0h
+ph  <- row$ph
+Y0h <- row$Y0h
+Z0h <- row$Z0h
+W0h <- row$W0h
+V0h <- ph * N0h
+X0h <- (1 - ph) * N0h - Y0h - Z0h - W0h
 
-#Data storage time
-dt = 0.5#timestep for storing data
-sim_duration = 1500 #length of the simulation
+init <- c(Xc = X0c, Vc = V0c, Wc = W0c, Yc = Y0c, Zc = Z0c,
+          Xh = X0h, Vh = V0h, Wh = W0h, Yh = Y0h, Zh = Z0h)
+
+# Print parameter values
+cat("Parameters used in the model run:\n")
+print(pars)
+
+# Print initial conditions
+cat("\nInitial values used:\n")
+print(init)
+
+# Time settings
+dt <- 0.5
+sim_duration <- 1500
 times <- seq(0, sim_duration, by = dt)
 
-#Solve the ordinary differential equations
-ode.out <- ode(init, times, sveir,pars)
+# Solve ODEs
+ode.out <- ode(init, times, sveir, pars)
 
 # Set up a 2x1 layout with extra space for legend
 layout(matrix(c(1, 2, 3, 4), nrow = 4), heights = c(4, 1, 4, 1))
@@ -121,9 +124,3 @@ legend("center", legend = c("Xh", "Vh", "Wh", "Yh", "Zh"),
        col = c("blue", "purple", "orange", "red", "green"),
        lwd = 3, horiz = TRUE, cex = 1.2, bty = "n", text.font = 2)
 
-
-#plot X against Y
-plot(x = ode.out[,2], y = ode.out[,3], type = "l", xlab ="X", ylab ="Y")
-s <- seq(length(ode.out[,2])-1)
-arrows(x0 = ode.out[s,2], y0 = ode.out[s,3], x1 = ode.out[s + 1,2], y1 =
-         ode.out[s + 1 ,3],length = .075)
