@@ -23,7 +23,7 @@ sveir <- function(Time, State, pars){
 
 param_table <- read.csv("Data.csv", sep = ";", stringsAsFactors = FALSE)
 
-run_index <- 1
+run_index <- 10
 
 if (run_index < 1 || run_index > nrow(param_table)) {
   stop("Invalid run index. Please choose a number between 1 and ", nrow(param_table))
@@ -77,19 +77,20 @@ print(init)
 
 # Time settings
 dt <- 0.5
-sim_duration <- 500
+sim_duration <- 300
 times <- seq(0, sim_duration, by = dt)
 
 # Solve ODEs
 ode.out <- ode(init, times, sveir, pars)
 
-# Set up a 2x1 layout with extra space for legend
-layout(matrix(c(1, 2, 3, 4), nrow = 4), heights = c(4, 1, 4, 1))
+# Reset graphics device safely
+try(dev.off(), silent = TRUE)
 
-# Increase margins and font
-par(mar = c(5, 5, 4, 2), cex.lab = 1.5, cex.axis = 1.3, cex.main = 1.8)
+# Set up a 3-row layout: 1 = Camel plot, 2 = Human plot, 3 = legend
+layout(matrix(c(1, 2, 3), nrow = 3, byrow = TRUE), heights = c(4, 4, 1))
 
 # Camel Dynamics Plot
+par(mar = c(5, 5, 4, 2), cex.lab = 1.5, cex.axis = 1.3, cex.main = 1.8)
 plot(ode.out[, 1], ode.out[, 2], type = "l", col = "blue", lwd = 3,
      ylim = c(0, N0c),
      xlab = "Time (days)", ylab = "Number of Camels",
@@ -99,15 +100,8 @@ lines(ode.out[, 1], ode.out[, 4], col = "orange", lwd = 3)
 lines(ode.out[, 1], ode.out[, 5], col = "red", lwd = 3)
 lines(ode.out[, 1], ode.out[, 6], col = "green", lwd = 3)
 
-## Camel Legend
-par(mar = c(0, 0, 0, 0))  # remove margins for legend
-plot.new()
-legend("center", legend = c("Xc", "Vc", "Wc", "Yc", "Zc"),
-       col = c("blue", "purple", "orange", "red", "green"),
-       lwd = 3, horiz = TRUE, cex = 1.2, bty = "n", text.font = 2)
-
-# Human Dynamics Plot 
-par(mar = c(5, 5, 4, 2))  # reset margins
+# Human Dynamics Plot
+par(mar = c(5, 5, 4, 2))
 plot(ode.out[, 1], ode.out[, 7] / 1e6, type = "l", col = "blue", lwd = 3,
      ylim = c(0, N0h / 1e6),
      xlab = "Time (days)", ylab = "Number of Humans (millions)",
@@ -117,62 +111,76 @@ lines(ode.out[, 1], ode.out[, 9] / 1e6, col = "orange", lwd = 3)
 lines(ode.out[, 1], ode.out[, 10] / 1e6, col = "red", lwd = 3)
 lines(ode.out[, 1], ode.out[, 11] / 1e6, col = "green", lwd = 3)
 
-# Human Legend 
+# --- Unified Legend in Two Rows ---
 par(mar = c(0, 0, 0, 0))
 plot.new()
-legend("center", legend = c("Xh", "Vh", "Wh", "Yh", "Zh"),
-       col = c("blue", "purple", "orange", "red", "green"),
-       lwd = 3, horiz = TRUE, cex = 1.2, bty = "n", text.font = 2)
 
-#plot X against Y
-plot(x = ode.out[,2], y = ode.out[,5], type = "l", xlab ="X", ylab ="Y")
-s <- seq(length(ode.out[,2])-1)
-arrows(x0 = ode.out[s,2], y0 = ode.out[s,5], x1 = ode.out[s + 1,2], y1 =
-         ode.out[s + 1 ,5],length = .075)
+# Split legend text and colors into two rows
+legend_labels_row1 <- c("Susceptible", "Vaccinated", "Latent")
+legend_colors_row1 <- c("blue", "purple", "orange")
 
-# ---- Reset layout and margins ----
+legend_labels_row2 <- c("Infectious", "Recovered")
+legend_colors_row2 <- c("red", "green")
+
+# Plot both rows manually using `legend()` twice
+legend("center", legend = legend_labels_row1,
+       col = legend_colors_row1, lwd = 3, horiz = TRUE,
+       cex = 1.2, bty = "n", text.font = 2, y.intersp = 1)
+
+legend("bottom", legend = legend_labels_row2,
+       col = legend_colors_row2, lwd = 3, horiz = TRUE,
+       cex = 1.2, bty = "n", text.font = 2, y.intersp = 1)
+
+
+# #plot X against Y
+# plot(x = ode.out[,2], y = ode.out[,5], type = "l", xlab ="X", ylab ="Y")
+# s <- seq(length(ode.out[,2])-1)
+# arrows(x0 = ode.out[s,2], y0 = ode.out[s,5], x1 = ode.out[s + 1,2], y1 =
+#          ode.out[s + 1 ,5],length = .075)
+
+# Reset layout and margins 
 par(mfrow = c(1, 1))
 par(mar = c(7, 5, 4, 5))  # enough bottom margin for text
 par(cex.lab = 1.4, cex.axis = 1.2, cex.main = 1.6)
 
-# ---- Time step ----
+# Time step 
 dt <- times[2] - times[1]
 
-# ---- Total camel population over time ----
+# Total camel population over time
 Nc_t <- ode.out[, "Xc"] + ode.out[, "Vc"] + ode.out[, "Wc"] + ode.out[, "Yc"] + ode.out[, "Zc"]
 
-# ---- New and cumulative camel infections ----
+# New and cumulative camel infections
 new_infections_c <- pars["betacc"] * ode.out[, "Xc"] * ode.out[, "Yc"] / Nc_t
 cumulative_infections_c <- cumsum(new_infections_c * dt)
 final_infections_c <- round(tail(cumulative_infections_c, 1))
 
-# ---- Total human population over time ----
+# Total human population over time 
 Nh_t <- ode.out[, "Xh"] + ode.out[, "Vh"] + ode.out[, "Wh"] + ode.out[, "Yh"] + ode.out[, "Zh"]
 
-# ---- New and cumulative human infections ----
+# New and cumulative human infections
 new_infections_h <- pars["betahh"] * ode.out[, "Xh"] * ode.out[, "Yh"] / Nh_t +
   pars["betahc"] * ode.out[, "Xh"] * ode.out[, "Yc"] / Nc_t
 cumulative_infections_h <- cumsum(new_infections_h * dt)
 final_infections_h <- round(tail(cumulative_infections_h, 1))
 
-# ---- Plot cumulative infected camels (left axis) ----
+# Plot cumulative infected camels (left axis) 
 plot(ode.out[, "time"], cumulative_infections_c, type = "l", lwd = 3, col = "red",
      xlab = "Time (days)", ylab = "Infected Camels",
      main = "Infected Camels and Humans")
 
-# ---- Add cumulative infected humans (right axis, in millions) ----
+# Add cumulative infected humans (right axis, in millions) 
 par(new = TRUE)
 plot(ode.out[, "time"], cumulative_infections_h / 1e6, type = "l", lwd = 3, col = "blue",
      axes = FALSE, xlab = "", ylab = "")
-axis(side = 4, col.axis = "blue", col = "blue", lwd = 2)
-mtext("Cumulative Infected Humans (millions)", side = 4, line = 3, col = "blue", cex = 1.3)
+axis(side = 4)
+mtext("Infected Humans (millions)", side = 4, line = 3, cex = 1.3)
 
-# ---- Add legend at bottom right INSIDE the plot ----
+# Add legend at bottom right INSIDE the plot 
 legend("bottomright",
        legend = c("Infected Camels", "Infected Humans"),
        col = c("red", "blue"), lwd = 3, bty = "n", text.font = 2, inset = c(0.02, 0.02))
 
-# ---- Display total values BELOW the plot, aligned right ----
+# Display total values BELOW the plot, aligned right 
 # Use 'usr' to get x and y limits for positioning text
 usr <- par("usr")
 x_pos <- usr[2]  # right x-axis limit
@@ -184,3 +192,4 @@ mtext(text = paste("Total Infected Camels:", format(final_infections_c, big.mark
 
 mtext(text = paste("Total Infected Humans:", format(final_infections_h, big.mark = ",")),
       side = 1, line = 4.2, adj = 1, cex = 1.1, col = "blue", font = 2)
+
