@@ -31,7 +31,7 @@ sveir <- function(Time, State, pars){
     dYc <- sigmac * Wc - gammac * Yc
     dZc <- gammac * Yc 
     Nh <- Xh + Vh + Wh + Yh + Zh  # Total camel population
-    dXh <- - 1 * betahh * Xh * Yh/Nh + omegah * Vh 
+    dXh <- - 1 * betahh * Xh * Yh/Nh - 1 * betahc * Xh * Yc/Nc + omegah * Vh 
     dVh <- -omegah * Vh 
     dWh <- betahh * Xh * Yh / Nh + betahc * Xh * Yc / Nc - sigmah * Wh
     dYh <- sigmah * Wh - gammah * Yh - muh * Yh
