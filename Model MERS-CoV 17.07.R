@@ -23,7 +23,7 @@ sveir <- function(Time, State, pars){
 
 param_table <- read.csv("Data.csv", sep = ";", stringsAsFactors = FALSE)
 
-run_index <- 10
+run_index <- 5
 
 if (run_index < 1 || run_index > nrow(param_table)) {
   stop("Invalid run index. Please choose a number between 1 and ", nrow(param_table))
@@ -77,7 +77,7 @@ print(init)
 
 # Time settings
 dt <- 0.5
-sim_duration <- 300
+sim_duration <- 500
 times <- seq(0, sim_duration, by = dt)
 
 # Solve ODEs
@@ -192,4 +192,118 @@ mtext(text = paste("Total Infected Camels:", format(final_infections_c, big.mark
 
 mtext(text = paste("Total Infected Humans:", format(final_infections_h, big.mark = ",")),
       side = 1, line = 4.2, adj = 1, cex = 1.1, col = "blue", font = 2)
+
+# Load necessary library
+library(ggplot2)
+
+# Constants
+Rcc <- 0.164 / 0.08
+Rhh <- 0.0864 / (0.07 + 0.002)
+
+# Re function
+Re_function <- function(pc, ph) {
+  term1 <- (1 - pc) * Rcc
+  term2 <- (1 - ph) * Rhh
+  0.5 * (term1 + term2 + abs(term1 - term2))  # sqrt(x^2) = |x|
+}
+
+# Theme for clean plots
+clean_theme <- theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10)
+  )
+
+# 1. Vaccinating camels (ph = 0, varying pc)
+pc_vals <- seq(0, 1, length.out = 100)
+Re_camels <- sapply(pc_vals, function(pc) Re_function(pc, ph = 0))
+df_camels <- data.frame(pc = pc_vals, Re = Re_camels)
+
+ggplot(df_camels, aes(x = pc, y = Re)) +
+  geom_line(color = "blue", size = 1) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "Vaccinating Camels",
+    x = "Camel vaccination coverage (pc)",
+    y = expression(R[e] / R[0])
+  ) +
+  ylim(0, max(df_camels$Re) * 1.05) +
+  clean_theme
+
+# 2. Vaccinating humans (pc = 0, varying ph)
+ph_vals <- seq(0, 1, length.out = 100)
+Re_humans <- sapply(ph_vals, function(ph) Re_function(pc = 0, ph))
+df_humans <- data.frame(ph = ph_vals, Re = Re_humans)
+
+ggplot(df_humans, aes(x = ph, y = Re)) +
+  geom_line(color = "darkgreen", size = 1) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "Vaccinating Humans",
+    x = "Human vaccination coverage (ph)",
+    y = expression(R[e] / R[0])
+  ) +
+  ylim(0, max(df_humans$Re) * 1.05) +
+  clean_theme
+
+# 3. Vaccinating both (pc = 0.5122, varying ph)
+Re_combined <- sapply(ph_vals, function(ph) Re_function(pc = 0.5122, ph))
+df_combined <- data.frame(ph = ph_vals, Re = Re_combined)
+
+ggplot(df_combined, aes(x = ph, y = Re)) +
+  geom_line(color = "purple", size = 1) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "Vaccinating Humans and Camels (pc = 0.5122)",
+    x = "Human vaccination coverage (ph)",
+    y = expression(R[e] / R[0])
+  ) +
+  ylim(0, max(df_combined$Re) * 1.05) +
+  clean_theme
+
+# Plot 1 (Vaccinating Camels)
+ggplot(df_camels, aes(x = pc, y = Re)) +
+  geom_line(color = "blue", size = 1) +
+  geom_hline(yintercept = 0, color = "black") +  # x-axis line
+  geom_vline(xintercept = 0, color = "black") +  # y-axis line
+  labs(
+    title = "Vaccinating Camels",
+    x = "Camel vaccination coverage (pc)",
+    y = "Re"
+  ) +
+  ylim(0, max(df_camels$Re) * 1.05) +
+  clean_theme
+
+# Plot 2 (Vaccinating Humans)
+ggplot(df_humans, aes(x = ph, y = Re)) +
+  geom_line(color = "darkgreen", size = 1) +
+  geom_hline(yintercept = 0, color = "black") +  # x-axis line
+  geom_vline(xintercept = 0, color = "black") +  # y-axis line
+  labs(
+    title = "Vaccinating Humans",
+    x = "Human vaccination coverage (ph)",
+    y = "Re"
+  ) +
+  ylim(0, max(df_humans$Re) * 1.05) +
+  clean_theme
+
+
+# Find the ph value where Re = 1 (closest)
+ph_critical <- df_combined$ph[which.min(abs(df_combined$Re - 1))]
+
+ggplot(df_combined, aes(x = ph, y = Re)) +
+  geom_line(color = "purple", size = 1) +
+  geom_vline(xintercept = ph_critical, linetype = "dashed", color = "blue") +  # vertical dashed line at ph_critical
+  geom_hline(yintercept = 0, color = "black") +  # x-axis line
+  geom_vline(xintercept = 0, color = "black") +  # y-axis line
+  labs(
+    title = "Vaccinating Humans and Camels (pc = 0.5122)",
+    x = "Human vaccination coverage (ph)",
+    y = "Re"
+  ) +
+  ylim(0, max(df_combined$Re) * 1.05) +
+  clean_theme
+
 
